@@ -1,0 +1,203 @@
+-- astrxl-taxedU
+-- light purple edition
+-- XENO-safe / no desync / no godmode
+
+local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local PhysicsService = game:GetService("PhysicsService")
+
+local player = Players.LocalPlayer
+local savedCFrame
+local tpEnabled = false
+local speedEnabled = false
+local noclipEnabled = false
+
+--------------------------------------------------
+-- UI
+--------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "astrxl-taxedU"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 230)
+frame.Position = UDim2.new(0.5, -150, 0.5, -115)
+frame.BackgroundColor3 = Color3.fromRGB(200, 170, 255) -- light purple
+frame.BorderSizePixel = 0
+frame.Parent = gui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 14)
+
+local stroke = Instance.new("UIStroke", frame)
+stroke.Color = Color3.fromRGB(170, 130, 230)
+stroke.Thickness = 2
+
+local header = Instance.new("TextLabel")
+header.Size = UDim2.new(1, -20, 0, 30)
+header.Position = UDim2.new(0, 10, 0, 8)
+header.BackgroundTransparency = 1
+header.Text = "astrxl-taxedU"
+header.Font = Enum.Font.GothamBold
+header.TextSize = 18
+header.TextColor3 = Color3.fromRGB(40, 20, 80)
+header.Parent = frame
+
+--------------------------------------------------
+-- Button creator
+--------------------------------------------------
+local function createButton(text, y)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, -30, 0, 36)
+	btn.Position = UDim2.new(0, 15, 0, y)
+	btn.Text = text
+	btn.Font = Enum.Font.GothamMedium
+	btn.TextSize = 14
+	btn.TextColor3 = Color3.fromRGB(40, 20, 80)
+	btn.BackgroundColor3 = Color3.fromRGB(230, 210, 255)
+	btn.BorderSizePixel = 0
+	btn.Parent = frame
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+
+	btn.MouseEnter:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(215, 190, 250)
+	end)
+	btn.MouseLeave:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(230, 210, 255)
+	end)
+
+	return btn
+end
+
+--------------------------------------------------
+-- Buttons
+--------------------------------------------------
+local setBtn   = createButton("Set Checkpoint", 50)
+local tpBtn    = createButton("Instant TP: OFF", 95)
+local speedBtn = createButton("Speed: OFF", 140)
+local noclipBtn= createButton("Noclip: OFF", 185)
+
+--------------------------------------------------
+-- Stealth Noclip Setup
+--------------------------------------------------
+pcall(function()
+	PhysicsService:CreateCollisionGroup("NoClipGroup")
+	PhysicsService:CollisionGroupSetCollidable("NoClipGroup", "Default", false)
+end)
+
+local function applyNoclip(char)
+	for _, v in pairs(char:GetDescendants()) do
+		if v:IsA("BasePart") then
+			pcall(function()
+				PhysicsService:SetPartCollisionGroup(v, "NoClipGroup")
+			end)
+		end
+	end
+end
+
+local function removeNoclip(char)
+	for _, v in pairs(char:GetDescendants()) do
+		if v:IsA("BasePart") then
+			pcall(function()
+				PhysicsService:SetPartCollisionGroup(v, "Default")
+			end)
+		end
+	end
+end
+
+--------------------------------------------------
+-- Runtime handlers
+--------------------------------------------------
+RunService.Stepped:Connect(function()
+	if noclipEnabled and player.Character then
+		local hum = player.Character:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum:ChangeState(Enum.HumanoidStateType.Physics)
+		end
+	end
+end)
+
+--------------------------------------------------
+-- Button logic
+--------------------------------------------------
+setBtn.MouseButton1Click:Connect(function()
+	local char = player.Character
+	if char and char:FindFirstChild("HumanoidRootPart") then
+		savedCFrame = char.HumanoidRootPart.CFrame
+	end
+end)
+
+tpBtn.MouseButton1Click:Connect(function()
+	tpEnabled = not tpEnabled
+	tpBtn.Text = tpEnabled and "Instant TP: ON" or "Instant TP: OFF"
+end)
+
+speedBtn.MouseButton1Click:Connect(function()
+	speedEnabled = not speedEnabled
+	speedBtn.Text = speedEnabled and "Speed: ON" or "Speed: OFF"
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.WalkSpeed = speedEnabled and 32 or 16
+	end
+end)
+
+noclipBtn.MouseButton1Click:Connect(function()
+	noclipEnabled = not noclipEnabled
+	noclipBtn.Text = noclipEnabled and "Noclip: ON" or "Noclip: OFF"
+
+	local char = player.Character
+	if not char then return end
+
+	if noclipEnabled then
+		applyNoclip(char)
+	else
+		removeNoclip(char)
+	end
+end)
+
+--------------------------------------------------
+-- Instant TP (NO desync required)
+--------------------------------------------------
+ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt, who)
+	if who ~= player then return end
+	if not tpEnabled or not savedCFrame then return end
+
+	if prompt.Name == "Steal" or prompt.ActionText == "Steal" then
+		local char = player.Character
+		if char and char:FindFirstChild("HumanoidRootPart") then
+			char.HumanoidRootPart.CFrame = savedCFrame
+		end
+	end
+end)
+
+--------------------------------------------------
+-- Drag UI
+--------------------------------------------------
+local dragging, dragStart, startPos
+
+frame.InputBegan:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = i.Position
+		startPos = frame.Position
+	end
+end)
+
+frame.InputEnded:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(i)
+	if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = i.Position - dragStart
+		frame.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
